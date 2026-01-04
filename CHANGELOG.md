@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.6] - 2026-01-05
+### Added
+- Persist the IDs for cached MiCloud sessions #729 Thanks @TJT-JTJ
+- If a diffuser device supports a "Quick diffusion" action, it will now show up
+
+
 ## [1.8.5] - 2025-12-28
 ### Added
 - Added node.js v24 support
