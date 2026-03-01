@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.7] - 2026-03-01
+### Added
+- Added support for yunmi.kettle.v19 (Xiaomi Mi Smart Kettle Pro 2) kettle Thanks @zloirog
+- Added support for xiaomi.kettle.v20 (Xiaomi Mi Smart Kettle) kettle Thanks @zloirog
+
+
 ## [1.8.6] - 2026-01-05
 ### Added
 - Persist the IDs for cached MiCloud sessions #729 Thanks @TJT-JTJ
