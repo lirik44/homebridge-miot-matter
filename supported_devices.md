@@ -271,6 +271,8 @@ Devices marked as 🔴[BLE Mesh] and 🟡[Zigbee] require a connection over a Ga
 ### Kettle
 
 -   yunmi.kettle.r3 (Yunmi Kettle) 🔵[MiCloud]
+-   yunmi.kettle.v19 (Xiaomi Mi Smart Kettle Pro 2)
+-   xiaomi.kettle.v20 (Xiaomi Mi Smart Kettle)
 
 ### Thermostat
 
