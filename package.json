@@ -69,5 +69,8 @@
   "homepage": "https://github.com/merdok/homebridge-miot#readme",
   "bin": {
     "miot": "./cli/index.js"
+  },
+  "scripts": {
+    "test": "node --test"
   }
 }
