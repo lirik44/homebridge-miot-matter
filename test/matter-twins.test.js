@@ -84,6 +84,17 @@ function twinFor(Twin, device, api = fakeApi()) {
   return { twin, api };
 }
 
+/**
+ * Anything arriving right after a report is the controller keeping its own attributes in step, and
+ * is ignored. A person's command comes out of nowhere - which is what this makes of one.
+ */
+function settled(twin) {
+  Object.keys(twin.pushedAt).forEach((cluster) => {
+    twin.pushedAt[cluster] = Date.now() - 60000;
+  });
+  return twin;
+}
+
 describe('a light over Matter', () => {
   it('is published as what it can actually do', () => {
     const full = new LightTwin(fakeLamp(), {}, fakeApi(), silent);
@@ -111,7 +122,7 @@ describe('a light over Matter', () => {
   it('drives the lamp from a controller command', async () => {
     const lamp = fakeLamp({ on: false, brightness: 10, kelvin: 2600 });
     const { twin } = twinFor(LightTwin, lamp);
-    const handlers = twin.handlers();
+    const handlers = settled(twin).handlers();
 
     await handlers.onOff.on();
     await handlers.levelControl.moveToLevel({ level: 254 });
@@ -127,13 +138,12 @@ describe('a light over Matter', () => {
     const { twin } = twinFor(LightTwin, lamp);
 
     // 6500K, colder than this lamp goes.
-    await twin.handlers().colorControl.moveToColorTemperatureLogic({ colorTemperatureMireds: 154 });
+    await settled(twin).handlers().colorControl.moveToColorTemperatureLogic({ colorTemperatureMireds: 154 });
     assert.equal(lamp.getColorTemperature(), 5000);
   });
 
-  it('ignores a command that carries the value it just reported', async () => {
-    // Reporting a value can reach these handlers as though a controller had commanded it; acted
-    // on, the two ecosystems then take turns telling each other what they were just told.
+  it('ignores a command asking for what the lamp is already doing', async () => {
+    // Which is what an echo of this plugin's own report looks like, whenever it arrives.
     const lamp = fakeLamp({ on: true, brightness: 40 });
     const { twin } = twinFor(LightTwin, lamp);
 
@@ -142,10 +152,10 @@ describe('a light over Matter', () => {
       setCalls += 1;
     };
 
-    await twin.handlers().levelControl.moveToLevel({ level: twin.toMatterLevel(40) });
+    await settled(twin).handlers().levelControl.moveToLevel({ level: twin.toMatterLevel(40) });
     assert.equal(setCalls, 0);
 
-    await twin.handlers().levelControl.moveToLevel({ level: twin.toMatterLevel(80) });
+    await settled(twin).handlers().levelControl.moveToLevel({ level: twin.toMatterLevel(80) });
     assert.equal(setCalls, 1);
   });
 });
@@ -186,7 +196,7 @@ describe('a fan or an air purifier over Matter', () => {
       speedCalls += 1;
     };
 
-    await twin.handlers().fanControl.fanModeChange({ fanMode: 3 });
+    await settled(twin).handlers().fanControl.fanModeChange({ fanMode: 3 });
     assert.equal(fan.isOn(), true);
     assert.equal(speedCalls, 0, 'a mode must never set a speed');
   });
@@ -195,7 +205,7 @@ describe('a fan or an air purifier over Matter', () => {
     const fan = fakeFan({ on: true, speed: 60 });
     const { twin } = twinFor(FanTwin, fan);
 
-    await twin.handlers().fanControl.percentSettingChange({ percentSetting: 0 });
+    await settled(twin).handlers().fanControl.percentSettingChange({ percentSetting: 0 });
     assert.equal(fan.isOn(), false);
   });
 
@@ -203,7 +213,7 @@ describe('a fan or an air purifier over Matter', () => {
     const fan = fakeFan({ on: false, speed: 20 });
     const { twin } = twinFor(FanTwin, fan);
 
-    await twin.handlers().fanControl.percentSettingChange({ percentSetting: 75 });
+    await settled(twin).handlers().fanControl.percentSettingChange({ percentSetting: 75 });
     assert.equal(fan.isOn(), true);
     assert.equal(fan.getRotationSpeedPercentage(), 75);
   });
@@ -217,7 +227,7 @@ describe('a fan or an air purifier over Matter', () => {
       setCalls += 1;
     };
 
-    await twin.handlers().fanControl.percentSettingChange({ percentSetting: 60 });
+    await settled(twin).handlers().fanControl.percentSettingChange({ percentSetting: 60 });
     assert.equal(setCalls, 0);
   });
 
@@ -226,19 +236,19 @@ describe('a fan or an air purifier over Matter', () => {
     const { twin } = twinFor(FanTwin, fan);
 
     assert.equal(twin.state().fanControl.percentSetting, 100);
-    await twin.handlers().fanControl.percentSettingChange({ percentSetting: 40 });
+    await settled(twin).handlers().fanControl.percentSettingChange({ percentSetting: 40 });
     assert.equal(fan.isOn(), true);
   });
 });
 
 describe('the air a purifier reports', () => {
-  it('is named the way Matter names it', () => {
+  it('is named one of the three things a plain sensor may say', () => {
+    // The finer gradations are separate features of the cluster, and setting one without them is
+    // refused: "Matter does not allow enum value Fair here".
     assert.equal(AirQualityTwin.qualityFor(5), 1);
-    assert.equal(AirQualityTwin.qualityFor(20), 2);
-    assert.equal(AirQualityTwin.qualityFor(40), 3);
-    assert.equal(AirQualityTwin.qualityFor(100), 4);
-    assert.equal(AirQualityTwin.qualityFor(200), 5);
-    assert.equal(AirQualityTwin.qualityFor(400), 6);
+    assert.equal(AirQualityTwin.qualityFor(35), 1);
+    assert.equal(AirQualityTwin.qualityFor(36), 4);
+    assert.equal(AirQualityTwin.qualityFor(400), 4);
   });
 
   it('is published only by a device that measures it', () => {
@@ -282,5 +292,44 @@ describe('what Matter refuses outright', () => {
     const descriptor = twin.descriptor('uuid-1', 'Очиститель Воздуха Про airquality');
 
     assert.equal(descriptor.displayName.length, 32);
+  });
+});
+
+describe('a change that follows this plugin\'s own report', () => {
+  // Reporting one attribute makes a controller derive others, and each of those arrives looking
+  // exactly like a command. Obeyed, they set a purifier running flat out in manual and then
+  // switched it off again - both of which the plugin had reported a moment earlier.
+
+  it('is left alone on a fan', async () => {
+    const fan = fakeFan({ on: true, speed: 33 });
+    const { twin } = twinFor(FanTwin, fan);
+
+    let speedCalls = 0;
+    let onCalls = 0;
+    fan.setRotationSpeedPercentage = async () => {
+      speedCalls += 1;
+    };
+    fan.setOn = async () => {
+      onCalls += 1;
+    };
+
+    twin.report();
+    // The controller works out a speed of its own from the mode, and sends it straight back.
+    await twin.handlers().fanControl.percentSettingChange({ percentSetting: 100 });
+    await twin.handlers().fanControl.percentSettingChange({ percentSetting: 0 });
+    await twin.handlers().fanControl.fanModeChange({ fanMode: 0 });
+
+    assert.equal(speedCalls, 0);
+    assert.equal(onCalls, 0);
+  });
+
+  it('is obeyed once the reporting has settled', async () => {
+    const fan = fakeFan({ on: true, speed: 33 });
+    const { twin } = twinFor(FanTwin, fan);
+
+    // What a person's command looks like: it comes out of nowhere, not on the heels of a report.
+    await settled(twin).handlers().fanControl.percentSettingChange({ percentSetting: 80 });
+
+    assert.equal(fan.getRotationSpeedPercentage(), 80);
   });
 });
