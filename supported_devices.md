@@ -212,7 +212,7 @@ Devices marked as 🔴[BLE Mesh] and 🟡[Zigbee] require a connection over a Ga
 -   yeelink.light.color3 (Yeelight LED Color Bulb YLDP02YL) 🔵[MiCloud]
 -   philips.light.bulb (Xiaomi Philips Smart LED) 🔵[MiCloud]
 -   yeelink.light.lamp1 (Xiaomi Mi Desk Lamp) 🔵[MiCloud]
--   yeelink.light.lamp4 (Mi Smart LED Desk Lamp 1S)
+-   yeelink.light.lamp4 (Mi Smart LED Desk Lamp 1S) 🟢[local, old commands]
 -   yeelink.light.strip4 (Yeelight Willow LED Lightstrip) 🔵[MiCloud]
 -   yeelink.light.color5 (Xiaomi Mi Smart LED Bulb Essential MJDPL01YL) 🔵[MiCloud]
 -   yeelink.light.color4 (Yeelight Smart LED Bulb 1S) 🔵[MiCloud]
