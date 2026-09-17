@@ -244,3 +244,20 @@ describe('reporting to the controllers', () => {
     assert.deepEqual(api.reported, [{ uuid: 'uuid-1', cluster: 'levelControl', attributes: { currentLevel: 203 } }]);
   });
 });
+
+describe('what Matter refuses outright', () => {
+  it('sets the attribute a lamp with a colour temperature must carry', () => {
+    // Without it matter.js refuses the whole accessory: "Conformance CT & ColorTemperatureMireds:
+    // Matter requires you to set this attribute".
+    const { twin } = twinFor(LightTwin, fakeLamp({ on: true, kelvin: 2600 }));
+    assert.equal(twin.state().colorControl.coupleColorTempToLevelMinMireds, 200);
+  });
+
+  it('keeps a name within the length a bridged device may have', () => {
+    const api = fakeApi();
+    const twin = new LightTwin(fakeLamp(), {}, api, silent);
+    const descriptor = twin.descriptor('uuid-1', 'Очиститель Воздуха Про airquality');
+
+    assert.equal(descriptor.displayName.length, 32);
+  });
+});
