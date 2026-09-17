@@ -16,6 +16,26 @@ The goal is to add Homekit support to miot devices and make them fully controlla
 #### Feedback and contribution is helpful and will improve the plugin!
 #### If your device is not supported please create a request and specify the device model and type.
 
+## Matter
+
+This fork publishes the same devices over Matter as well as HomeKit, so they also reach Alexa,
+SmartThings and Aqara. HomeKit is untouched: both halves drive the same device object and hear
+about every change, whichever ecosystem made it.
+
+| Device | Over Matter |
+| --- | --- |
+| Light | On/off, a dimmer where the lamp has one, and a colour temperature where it has that |
+| Fan, air purifier, humidifier | A fan: on/off and speed. Matter has no device type for an air purifier that any controller renders, and a purifier is a fan with a filter in front of it |
+| Air purifier | Plus an air quality sensor, where the device measures PM2.5 |
+
+It needs Matter enabled on the Homebridge bridge this plugin runs in - that is the real opt-in.
+`enableMatter: false` on a device leaves that one out.
+
+One thing is worth knowing about, because it is what keeps the two ecosystems still: reporting a
+value to a Matter controller can come back at the plugin as though the controller had commanded
+it. Acted on, the two halves take turns telling each other the value they were each told a moment
+ago, and the device flickers. Every twin ignores a command carrying the value it has just reported.
+
 ### Features
 * Integrates miot devices into Homekit
 * Detect device types automatically via miot spec or by local device implementations
