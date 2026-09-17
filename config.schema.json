@@ -221,6 +221,13 @@
               "default": true,
               "required": false
             },
+            "adaptiveLightingControl": {
+              "title": "Adaptive lighting",
+              "description": "Let HomeKit move the colour temperature through the day on lights that have both a dimmer and a colour temperature.",
+              "type": "boolean",
+              "default": true,
+              "required": false
+            },
             "childLockControl": {
               "title": "Child lock control service",
               "description": "Whether the child lock control service is enabled.",
@@ -503,7 +510,8 @@
       }
     }
   },
-  "layout": [{
+  "layout": [
+    {
       "type": "fieldset",
       "title": "Global MiCloud Settings",
       "description": "Configure global MiCloud connection details used for all devices.",
@@ -531,7 +539,8 @@
           "key": "devices[]",
           "type": "fieldset",
           "title": "{{ value.title }}",
-          "items": [{
+          "items": [
+            {
               "type": "fieldset",
               "title": "Advanced Settings",
               "description": "Configure advanced plugin settings.",
@@ -846,7 +855,8 @@
               "description": "Configure air monitor specific device settings.",
               "expandable": true,
               "expanded": false,
-              "items": [{
+              "items": [
+                {
                   "key": "devices[].pm25Breakpoints",
                   "type": "array",
                   "items": {
