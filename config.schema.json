@@ -140,6 +140,13 @@
               "type": "boolean",
               "default": true
             },
+            "enableMatter": {
+              "title": "Publish over Matter",
+              "description": "Publish this device over Matter as well as HomeKit, for Alexa, SmartThings, Aqara and the rest. On wherever the Homebridge bridge this plugin runs in has Matter enabled; turn it off here to leave one device out.",
+              "type": "boolean",
+              "default": true,
+              "required": false
+            },
             "micloud": {
               "title": "MiCloud connection",
               "type": "object",

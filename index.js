@@ -4,6 +4,7 @@ const DeviceFactory = require('./lib/factories/DeviceFactory.js');
 const DevTypes = require('./lib/constants/DevTypes.js');
 const Constants = require('./lib/constants/Constants.js');
 const Logger = require('./lib/utils/Logger.js');
+const MatterBridge = require('./lib/matter/MatterBridge.js');
 const Events = require('./lib/constants/Events.js');
 
 let Service, Characteristic, Homebridge, Accessory;
@@ -22,10 +23,11 @@ module.exports = function(homebridge) {
 
 
 class miotDeviceController {
-  constructor(log, config, globalmicloudconfig, api) {
+  constructor(log, config, globalmicloudconfig, api, cachedMatterAccessories = []) {
     this.log = log;
     this.config = config;
     this.api = api;
+    this.cachedMatterAccessories = cachedMatterAccessories;
 
     this.logger = new Logger(log, config.name);
 
@@ -193,6 +195,10 @@ class miotDeviceController {
       this.logger.info(`Registering ${this.device.getAccessories().length} accessories!`);
       this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, this.device.getAccessories());
 
+      // The same device over Matter, alongside HomeKit rather than instead of it: HomeKit speaks
+      // HAP, while everything else - Alexa, SmartThings, Aqara - sees a home over Matter.
+      this._publishOverMatter();
+
       if (this.deviceEnabled) {
         this.logger.info('Everything looks good! Initiating property polling!');
         this.miotDevice.startPropertyPolling();
@@ -201,6 +207,27 @@ class miotDeviceController {
       }
     }
   }
+
+  _publishOverMatter() {
+    if (!MatterBridge.isAvailable(this.api)) {
+      return;
+    }
+
+    try {
+      this.matter = new MatterBridge(this.device, this.config, this.api, this.logger, this.getMatterSeed(), this.name);
+      this.matter.publish(PLUGIN_NAME, PLATFORM_NAME, this.cachedMatterAccessories)
+        .catch(err => this.logger.warn(`Could not publish over Matter: ${err.message || err}`));
+    } catch (err) {
+      this.logger.warn(`Could not publish over Matter: ${err.message || err}`);
+    }
+  }
+
+  getMatterSeed() {
+    // The device id where there is one, and the address where there is not: what matters is that
+    // it survives a restart, so a controller keeps the accessories it was given.
+    return this.deviceId || this.ip;
+  }
+
 
   /*----------========== PUBLIC ==========----------*/
 
@@ -284,6 +311,9 @@ class miotPlatform {
   constructor(log, config, api) {
 
     this.cachedAccessories = [];
+    // What Homebridge restored for this plugin over Matter, so a device that no longer publishes
+    // something can take it away rather than leave it in the controller for ever.
+    this.cachedMatterAccessories = [];
     this.log = log;
     this.api = api;
     this.config = config;
@@ -309,6 +339,14 @@ class miotPlatform {
   configureAccessory(accessory) {
     this.log.debug(`Found cached accessory ${accessory.displayName}`);
     this.cachedAccessories.push(accessory);
+  }
+
+  /*
+   * The same, for the accessories this plugin published over Matter.
+   */
+  configureMatterAccessory(accessory) {
+    this.log.debug(`Found cached Matter accessory ${accessory.displayName}`);
+    this.cachedMatterAccessories.push(accessory);
   }
 
   // ------------ CUSTOM METHODS ------------
@@ -340,7 +378,7 @@ class miotPlatform {
   }
 
   initDevice(deviceConfig) {
-    const newDevCtrl = new miotDeviceController(this.log, deviceConfig, this.config.micloud, this.api);
+    const newDevCtrl = new miotDeviceController(this.log, deviceConfig, this.config.micloud, this.api, this.cachedMatterAccessories);
     const restoredAccessory = this.cachedAccessories.find(accessory => accessory.UUID === newDevCtrl.getAccessoryUuid());
     if (restoredAccessory) {
       newDevCtrl.setRestoredCachedAccessory(restoredAccessory);
