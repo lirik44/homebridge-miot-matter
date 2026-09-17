@@ -153,21 +153,42 @@ describe('a light over Matter', () => {
 describe('a fan or an air purifier over Matter', () => {
   it('reports off as off, whatever speed it was left at', () => {
     const { twin } = twinFor(FanTwin, fakeFan({ on: false, speed: 60 }));
-    assert.deepEqual(twin.state().fanControl, {
-      fanMode: 0,
-      fanModeSequence: 0,
-      percentSetting: 0,
-      percentCurrent: 0,
-    });
+    assert.deepEqual(twin.state().fanControl, { percentSetting: 0, percentCurrent: 0 });
   });
 
-  it('names the speed the way a controller draws it', () => {
-    const modes = [10, 50, 90].map((speed) => {
-      const { twin } = twinFor(FanTwin, fakeFan({ on: true, speed }));
-      return twin.state().fanControl.fanMode;
+  it('reports the speed and never the mode', () => {
+    // matter.js keeps the mode in step with the percentage itself, and a mode sent from here
+    // comes back as a percentage of its choosing - which, taken for a command, set a purifier
+    // running flat out in manual when all anyone did was switch it on.
+    const { twin } = twinFor(FanTwin, fakeFan({ on: true, speed: 40 }));
+
+    assert.deepEqual(twin.state().fanControl, { percentSetting: 40, percentCurrent: 40 });
+    assert.equal('fanMode' in twin.state().fanControl, false);
+  });
+
+  it('names the speed the way a controller draws it, when the accessory is built', () => {
+    const modes = [0, 10, 50, 90].map((speed) => {
+      const { twin } = twinFor(FanTwin, fakeFan({ on: speed > 0, speed }));
+      return twin.initialState().fanControl.fanMode;
     });
 
-    assert.deepEqual(modes, [1, 2, 3]);
+    assert.deepEqual(modes, [0, 1, 2, 3]);
+  });
+
+  it('changes nothing when a mode arrives for a device already in that state', async () => {
+    // What arrives after this plugin reports a speed is matter.js keeping its own attributes in
+    // step, not a person asking for anything.
+    const fan = fakeFan({ on: true, speed: 20 });
+    const { twin } = twinFor(FanTwin, fan);
+
+    let speedCalls = 0;
+    fan.setRotationSpeedPercentage = async () => {
+      speedCalls += 1;
+    };
+
+    await twin.handlers().fanControl.fanModeChange({ fanMode: 3 });
+    assert.equal(fan.isOn(), true);
+    assert.equal(speedCalls, 0, 'a mode must never set a speed');
   });
 
   it('turns the device off when a controller asks for no speed at all', async () => {
@@ -226,7 +247,9 @@ describe('the air a purifier reports', () => {
 
     assert.equal(measures.supported(), true);
     assert.equal(does_not.supported(), false);
-    assert.deepEqual(measures.state().pm25ConcentrationMeasurement, { measuredValue: 7, measurementMedium: 0 });
+    // The reading itself cannot be reported: Homebridge's air quality sensor carries the air
+    // quality cluster and nothing else, and setting a concentration on it is refused.
+    assert.deepEqual(measures.state(), { airQuality: { airQuality: 1 } });
   });
 });
 
